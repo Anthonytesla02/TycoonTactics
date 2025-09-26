@@ -24,11 +24,17 @@ export interface Contact {
 export interface Employee {
   id: string;
   name: string;
-  role: string;
+  role: EmployeeRole;
   competence: number;
   loyalty: number;
   salary: number;
+  specialization: string;
+  experience: number;
+  skillLevel: number;
+  abilities: string[];
 }
+
+import { EmployeeRole, EMPLOYEE_ROLES } from '../../../../shared/employeeConfig';
 
 export interface Company {
   name: string;
@@ -71,8 +77,10 @@ interface GameState {
   buyStock: (symbol: string, shares: number) => void;
   sellStock: (symbol: string, shares: number) => void;
   createCompany: (name: string) => void;
-  hireEmployee: () => void;
+  hireEmployee: (role?: EmployeeRole) => void;
   upgradeEmployee: (id: string, type: 'competence' | 'salary') => void;
+  trainEmployee: (id: string, skill: string) => void;
+  getEmployeeBonus: (role: EmployeeRole) => number;
   requestFavor: (contactId: string, type: 'money' | 'info' | 'sabotage') => void;
   helpContact: (contactId: string) => void;
   settleLawsuit: (id: string) => void;
@@ -241,19 +249,26 @@ export const useGameState = create<GameState>()(
       }
     },
 
-    hireEmployee: () => {
+    hireEmployee: (role?: EmployeeRole) => {
       const state = get();
       if (state.company && state.player.cash >= 25000) {
-        const names = ['Alex Johnson', 'Maria Garcia', 'James Wilson', 'Lisa Zhang', 'Robert Brown'];
-        const roles = ['Analyst', 'Trader', 'Risk Manager', 'Compliance Officer', 'Portfolio Manager'];
+        const names = ['Alex Johnson', 'Maria Garcia', 'James Wilson', 'Lisa Zhang', 'Robert Brown', 'Jennifer Chen', 'Michael Rodriguez', 'Sarah Kim', 'David Taylor', 'Amanda White'];
+        
+        const availableRoles = Object.keys(EMPLOYEE_ROLES) as EmployeeRole[];
+        const selectedRole = role || availableRoles[Math.floor(Math.random() * availableRoles.length)];
+        const roleData = EMPLOYEE_ROLES[selectedRole];
         
         const newEmployee: Employee = {
           id: Date.now().toString(),
           name: names[Math.floor(Math.random() * names.length)],
-          role: roles[Math.floor(Math.random() * roles.length)],
-          competence: 50 + Math.floor(Math.random() * 30),
-          loyalty: 60 + Math.floor(Math.random() * 30),
-          salary: 5000 + Math.floor(Math.random() * 3000)
+          role: selectedRole,
+          specialization: roleData.specializations[Math.floor(Math.random() * roleData.specializations.length)],
+          competence: 40 + Math.floor(Math.random() * 40),
+          loyalty: 50 + Math.floor(Math.random() * 40),
+          salary: roleData.baseSalary + Math.floor(Math.random() * 3000),
+          experience: 0,
+          skillLevel: 1,
+          abilities: roleData.abilities
         };
 
         set({
@@ -264,7 +279,7 @@ export const useGameState = create<GameState>()(
           company: {
             ...state.company,
             employees: [...state.company.employees, newEmployee],
-            value: state.company.value + 15000
+            value: state.company.value + 20000
           }
         });
       }
@@ -274,15 +289,22 @@ export const useGameState = create<GameState>()(
       const state = get();
       if (!state.company) return;
 
-      const cost = type === 'competence' ? 5000 : 2000;
+      const cost = type === 'competence' ? 8000 : 3000;
       if (state.player.cash < cost) return;
 
       const updatedEmployees = state.company.employees.map(emp => {
         if (emp.id === id) {
           if (type === 'competence') {
-            return { ...emp, competence: Math.min(100, emp.competence + 10) };
+            const newExp = emp.experience + 10;
+            const newSkillLevel = Math.floor(newExp / 50) + 1;
+            return { 
+              ...emp, 
+              competence: Math.min(100, emp.competence + 15),
+              experience: newExp,
+              skillLevel: Math.min(5, newSkillLevel)
+            };
           } else {
-            return { ...emp, salary: emp.salary + 1000, loyalty: Math.min(100, emp.loyalty + 5) };
+            return { ...emp, salary: emp.salary + 1500, loyalty: Math.min(100, emp.loyalty + 8) };
           }
         }
         return emp;
@@ -298,6 +320,49 @@ export const useGameState = create<GameState>()(
           employees: updatedEmployees
         }
       });
+    },
+
+    trainEmployee: (id: string, skill: string) => {
+      const state = get();
+      if (!state.company || state.player.cash < 15000) return;
+
+      const updatedEmployees = state.company.employees.map(emp => {
+        if (emp.id === id) {
+          return {
+            ...emp,
+            specialization: skill,
+            competence: Math.min(100, emp.competence + 20),
+            experience: emp.experience + 25,
+            skillLevel: Math.min(5, Math.floor((emp.experience + 25) / 50) + 1)
+          };
+        }
+        return emp;
+      });
+
+      set({
+        player: {
+          ...state.player,
+          cash: state.player.cash - 15000
+        },
+        company: {
+          ...state.company,
+          employees: updatedEmployees
+        }
+      });
+    },
+
+    getEmployeeBonus: (role: EmployeeRole) => {
+      const state = get();
+      if (!state.company) return 0;
+      
+      const roleConfig = EMPLOYEE_ROLES[role];
+      if (!roleConfig) return 0;
+      
+      const employees = state.company.employees.filter(emp => emp.role === role);
+      return employees.reduce((total, emp) => {
+        const roleMultiplier = roleConfig.bonusMultiplier;
+        return total + (emp.competence * emp.skillLevel * roleMultiplier / 100);
+      }, 0);
     },
 
     requestFavor: (contactId: string, type: 'money' | 'info' | 'sabotage') => {

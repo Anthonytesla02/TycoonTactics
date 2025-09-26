@@ -1,14 +1,26 @@
 import { useState } from "react";
-import { useGameState } from "../lib/stores/useGameState";
+import { useGameState, Employee } from "../lib/stores/useGameState";
+import { EmployeeRole, EMPLOYEE_ROLES } from "../../../shared/employeeConfig";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
-import { Building, Users, DollarSign, TrendingUp, Plus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Building, Users, DollarSign, TrendingUp, Plus, Brain, TrendingUp as Trading, Scale, Shield, AlertTriangle, Star } from "lucide-react";
 
 export function CompanyManager() {
-  const { player, company, createCompany, hireEmployee, upgradeEmployee } = useGameState();
+  const { player, company, createCompany, hireEmployee, upgradeEmployee, trainEmployee } = useGameState();
   const [companyName, setCompanyName] = useState("");
+  const [selectedRole, setSelectedRole] = useState<EmployeeRole | "random">("random");
+  const [showHireOptions, setShowHireOptions] = useState(false);
+
+  const roleIcons = {
+    brain: Brain,
+    'trending-up': Trading,
+    scale: Scale,
+    shield: Shield,
+    'alert-triangle': AlertTriangle
+  };
 
   if (!company) {
     return (
@@ -106,68 +118,171 @@ export function CompanyManager() {
               <Users className="w-5 h-5" />
               Employees
             </span>
-            <Button
-              size="sm"
-              onClick={() => hireEmployee()}
-              disabled={player.cash < 25000}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Hire ($25k)
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={() => setShowHireOptions(!showHireOptions)}
+                disabled={player.cash < 25000}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Hire Employee ($25k)
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {showHireOptions && (
+            <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
+              <h3 className="font-semibold mb-4 flex items-center gap-2">
+                <Star className="w-4 h-4" />
+                Choose Employee Type
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                {(Object.entries(EMPLOYEE_ROLES) as [EmployeeRole, any][]).map(([role, config]) => {
+                  const Icon = roleIcons[config.icon as keyof typeof roleIcons];
+                  return (
+                    <Button
+                      key={role}
+                      variant={selectedRole === role ? "default" : "outline"}
+                      onClick={() => setSelectedRole(role)}
+                      className="h-auto p-3 flex flex-col items-start text-left"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Icon className={`w-4 h-4 ${config.color}`} />
+                        <span className="capitalize font-semibold">{config.name}</span>
+                      </div>
+                      <p className="text-xs text-gray-400">{config.description}</p>
+                    </Button>
+                  );
+                })}
+                <Button
+                  variant={selectedRole === "random" ? "default" : "outline"}
+                  onClick={() => setSelectedRole("random")}
+                  className="h-auto p-3 flex flex-col items-start text-left"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Users className="w-4 h-4 text-gray-400" />
+                    <span className="font-semibold">Random</span>
+                  </div>
+                  <p className="text-xs text-gray-400">Let me choose for you</p>
+                </Button>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    hireEmployee(selectedRole === "random" ? undefined : selectedRole);
+                    setShowHireOptions(false);
+                  }}
+                  disabled={player.cash < 25000}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Hire {selectedRole === "random" ? "Random" : selectedRole.replace('_', ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} ($25k)
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowHireOptions(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
           {company.employees.length === 0 ? (
             <p className="text-gray-400">No employees yet. Hire your first team member!</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {company.employees.map((employee: any) => (
-                <div key={employee.id} className="p-4 bg-gray-700 rounded-lg">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <div className="font-semibold">{employee.name}</div>
-                      <div className="text-sm text-gray-400">{employee.role}</div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {company.employees.map((employee: Employee) => {
+                const roleConfig = EMPLOYEE_ROLES[employee.role];
+                const Icon = roleIcons[roleConfig.icon as keyof typeof roleIcons] || Users;
+                return (
+                  <div key={employee.id} className="p-4 bg-gray-700 rounded-lg border border-gray-600">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <Icon className={`w-4 h-4 ${roleConfig.color}`} />
+                          <span className="font-semibold">{employee.name}</span>
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {roleConfig.name} • {employee.specialization}
+                        </div>
+                        <div className="flex items-center gap-1 mt-1">
+                          {Array.from({ length: employee.skillLevel }, (_, i) => (
+                            <Star key={i} className="w-3 h-3 fill-yellow-400 text-yellow-400" />
+                          ))}
+                          {Array.from({ length: 5 - employee.skillLevel }, (_, i) => (
+                            <Star key={i + employee.skillLevel} className="w-3 h-3 text-gray-500" />
+                          ))}
+                          <span className="text-xs text-gray-400 ml-1">Level {employee.skillLevel}</span>
+                        </div>
+                      </div>
+                      <Badge variant={
+                        employee.loyalty >= 80 ? 'default' :
+                        employee.loyalty >= 50 ? 'secondary' : 'destructive'
+                      }>
+                        {employee.loyalty}% Loyal
+                      </Badge>
                     </div>
-                    <Badge variant={
-                      employee.loyalty >= 80 ? 'default' :
-                      employee.loyalty >= 50 ? 'secondary' : 'destructive'
-                    }>
-                      {employee.loyalty}% Loyal
-                    </Badge>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Competence:</span>
-                      <span>{employee.competence}/100</span>
+                    
+                    <div className="space-y-2 mb-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Competence:</span>
+                        <span>{employee.competence}/100</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Experience:</span>
+                        <span>{employee.experience} XP</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Salary:</span>
+                        <span>${employee.salary.toLocaleString()}/month</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-400">Salary:</span>
-                      <span>${employee.salary.toLocaleString()}/month</span>
+
+                    <div className="mb-3">
+                      <div className="text-xs text-gray-400 mb-1">Abilities:</div>
+                      <div className="flex flex-wrap gap-1">
+                        {employee.abilities.map((ability, idx) => (
+                          <span key={idx} className="text-xs bg-blue-900 text-blue-200 px-2 py-1 rounded">
+                            {ability}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => upgradeEmployee(employee.id, 'competence')}
+                        disabled={player.cash < 8000}
+                        variant="outline"
+                      >
+                        Train ($8k)
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => upgradeEmployee(employee.id, 'salary')}
+                        disabled={player.cash < 3000}
+                        variant="outline"
+                      >
+                        Raise ($3k)
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => trainEmployee(employee.id, employee.specialization)}
+                        disabled={player.cash < 15000}
+                        variant="outline"
+                        className="bg-purple-900 hover:bg-purple-800"
+                      >
+                        Specialize ($15k)
+                      </Button>
                     </div>
                   </div>
-                  
-                  <div className="mt-3 flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => upgradeEmployee(employee.id, 'competence')}
-                      disabled={player.cash < 5000}
-                      variant="outline"
-                    >
-                      Train ($5k)
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => upgradeEmployee(employee.id, 'salary')}
-                      disabled={player.cash < 2000}
-                      variant="outline"
-                    >
-                      Raise ($2k)
-                    </Button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
