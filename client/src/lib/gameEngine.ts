@@ -1,3 +1,6 @@
+import { useMarketData } from './stores/useMarketData';
+import { useGameState } from './stores/useGameState';
+
 let websocket: WebSocket | null = null;
 
 export async function initializeWebSocket(): Promise<void> {
@@ -22,9 +25,12 @@ export async function initializeWebSocket(): Promise<void> {
           } else {
             data = event.data;
           }
+          console.log('Processing WebSocket message:', data.type, data);
           handleWebSocketMessage(data);
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', event.data, error);
+          console.error('Failed to parse WebSocket message:', event.data);
+          console.error('Error details:', error);
+          console.error('Error stack:', error instanceof Error ? error.stack : error);
         }
       };
       
@@ -64,8 +70,8 @@ function handleWebSocketMessage(data: any) {
       // Handle real-time market updates
       if (data.symbol && data.price) {
         // Update market data store
-        const { useMarketData } = require('./stores/useMarketData');
         useMarketData.getState().updateStock(data.symbol, data.price);
+        console.log(`Updated ${data.symbol} to ${data.price}`);
       }
       break;
       
@@ -81,7 +87,6 @@ function handleWebSocketMessage(data: any) {
       
     case 'lawsuit_filed':
       // Handle new lawsuits
-      const { useGameState } = require('./stores/useGameState');
       if (data.lawsuit) {
         const state = useGameState.getState();
         state.lawsuits.push(data.lawsuit);
