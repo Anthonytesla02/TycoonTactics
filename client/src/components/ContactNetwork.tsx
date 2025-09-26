@@ -11,7 +11,7 @@ export function ContactNetwork() {
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
 
   const selectedContactData = selectedContact 
-    ? contacts.find(c => c.id === selectedContact)
+    ? contacts.find((c: any) => c.id === selectedContact)
     : null;
 
   return (

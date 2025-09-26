@@ -96,7 +96,7 @@ export function LegalSystem() {
             <p className="text-gray-400">No active lawsuits. Keep it clean!</p>
           ) : (
             <div className="space-y-4">
-              {lawsuits.map((lawsuit) => (
+              {lawsuits.map((lawsuit: any) => (
                 <div key={lawsuit.id} className="p-4 bg-gray-700 rounded-lg border-l-4 border-red-500">
                   <div className="flex justify-between items-start mb-3">
                     <div>

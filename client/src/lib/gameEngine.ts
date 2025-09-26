@@ -15,10 +15,12 @@ export async function initializeWebSocket(): Promise<void> {
       
       websocket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data);
-          handleWebSocketMessage(data);
+          if (typeof event.data === 'string' && event.data.trim()) {
+            const data = JSON.parse(event.data);
+            handleWebSocketMessage(data);
+          }
         } catch (error) {
-          console.error('Failed to parse WebSocket message:', error);
+          console.error('Failed to parse WebSocket message:', event.data, error);
         }
       };
       

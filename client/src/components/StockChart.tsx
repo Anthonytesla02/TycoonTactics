@@ -30,14 +30,14 @@ export function StockChart({ symbol }: StockChartProps) {
   const { stocks } = useMarketData();
   const chartRef = useRef(null);
 
-  const stock = stocks.find(s => s.symbol === symbol);
+  const stock = stocks.find((s: any) => s.symbol === symbol);
   
   if (!stock) {
     return <div className="text-gray-400">Stock not found</div>;
   }
 
   const chartData = {
-    labels: stock.priceHistory.map((_, index) => {
+    labels: stock.priceHistory.map((_: number, index: number) => {
       const date = new Date(Date.now() - (stock.priceHistory.length - index - 1) * 1000);
       return date.toLocaleTimeString();
     }),

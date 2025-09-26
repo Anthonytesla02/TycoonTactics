@@ -184,7 +184,7 @@ export function generateCorrelatedMovement(
   
   // Generate sector-wide movements
   const sectors = Object.values(stockSectors);
-  const uniqueSectors = [...new Set(sectors)];
+  const uniqueSectors = Array.from(new Set(sectors));
   
   uniqueSectors.forEach(sector => {
     sectorMovements[sector] = (Math.random() - 0.5) * 0.02; // -1% to +1%

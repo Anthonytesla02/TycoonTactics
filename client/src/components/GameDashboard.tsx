@@ -126,16 +126,16 @@ export function GameDashboard() {
                   {Object.entries(player.portfolio).length === 0 ? (
                     <p className="text-gray-400">No holdings yet. Start investing!</p>
                   ) : (
-                    Object.entries(player.portfolio).map(([symbol, shares]) => {
+                    Object.entries(player.portfolio).map(([symbol, shares]: [string, number]) => {
                       const currentPrice = getStockPrice(symbol);
-                      const value = shares * currentPrice;
-                      const stock = stocks.find(s => s.symbol === symbol);
+                      const value = (shares as number) * currentPrice;
+                      const stock = stocks.find((s: any) => s.symbol === symbol);
                       
                       return (
                         <div key={symbol} className="flex justify-between items-center p-3 bg-gray-700 rounded">
                           <div>
                             <div className="font-semibold">{symbol}</div>
-                            <div className="text-sm text-gray-400">{shares} shares</div>
+                            <div className="text-sm text-gray-400">{shares as number} shares</div>
                           </div>
                           <div className="text-right">
                             <div className="font-semibold">${value.toLocaleString()}</div>
@@ -186,7 +186,7 @@ export function GameDashboard() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {stocks.map((stock) => {
+                {stocks.map((stock: any) => {
                   const isSelected = selectedStock === stock.symbol;
                   const priceChange = stock.priceHistory.length > 1 
                     ? stock.price - stock.priceHistory[stock.priceHistory.length - 2]

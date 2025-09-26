@@ -122,7 +122,7 @@ export function CompanyManager() {
             <p className="text-gray-400">No employees yet. Hire your first team member!</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {company.employees.map((employee) => (
+              {company.employees.map((employee: any) => (
                 <div key={employee.id} className="p-4 bg-gray-700 rounded-lg">
                   <div className="flex justify-between items-start mb-3">
                     <div>
