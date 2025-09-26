@@ -15,10 +15,14 @@ export async function initializeWebSocket(): Promise<void> {
       
       websocket.onmessage = (event) => {
         try {
-          if (typeof event.data === 'string' && event.data.trim()) {
-            const data = JSON.parse(event.data);
-            handleWebSocketMessage(data);
+          let data;
+          // Check if data is already parsed or needs parsing
+          if (typeof event.data === 'string') {
+            data = JSON.parse(event.data);
+          } else {
+            data = event.data;
           }
+          handleWebSocketMessage(data);
         } catch (error) {
           console.error('Failed to parse WebSocket message:', event.data, error);
         }
@@ -65,6 +69,11 @@ function handleWebSocketMessage(data: any) {
       }
       break;
       
+    case 'market_event':
+      // Handle market events
+      console.log('Market event:', data.eventType, data.symbol, `${data.impact}%`);
+      break;
+      
     case 'news_event':
       // Handle market-moving news events
       console.log('News event:', data.event);
@@ -77,6 +86,10 @@ function handleWebSocketMessage(data: any) {
         const state = useGameState.getState();
         state.lawsuits.push(data.lawsuit);
       }
+      break;
+      
+    case 'connected':
+      console.log('Game server connected:', data.message);
       break;
       
     default:
