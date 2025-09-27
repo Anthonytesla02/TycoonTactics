@@ -54,6 +54,13 @@ export interface Lawsuit {
   status: 'pending' | 'settled' | 'trial';
 }
 
+interface BetrayalEvent {
+  type: 'theft' | 'leak';
+  employee: string;
+  amount?: number;
+  riskIncrease?: number;
+}
+
 export interface Player {
   cash: number;
   portfolio: Record<string, number>; // symbol -> shares
@@ -81,6 +88,9 @@ interface GameState {
   upgradeEmployee: (id: string, type: 'competence' | 'salary') => void;
   trainEmployee: (id: string, skill: string) => void;
   getEmployeeBonus: (role: EmployeeRole) => number;
+  checkEmployeeBetrayals: () => void;
+  fireEmployee: (id: string) => void;
+  giveEmployeeBonus: (id: string, amount: number) => void;
   requestFavor: (contactId: string, type: 'money' | 'info' | 'sabotage') => void;
   helpContact: (contactId: string) => void;
   settleLawsuit: (id: string) => void;
@@ -361,7 +371,10 @@ export const useGameState = create<GameState>()(
       const employees = state.company.employees.filter(emp => emp.role === role);
       return employees.reduce((total, emp) => {
         const roleMultiplier = roleConfig.bonusMultiplier;
-        return total + (emp.competence * emp.skillLevel * roleMultiplier / 100);
+        // Loyalty affects performance: 100% loyalty = full performance, 0% loyalty = 50% performance
+        const loyaltyMultiplier = 0.5 + (emp.loyalty / 200);
+        const baseBonus = emp.competence * emp.skillLevel * roleMultiplier / 100;
+        return total + (baseBonus * loyaltyMultiplier);
       }, 0);
     },
 
@@ -460,6 +473,124 @@ export const useGameState = create<GameState>()(
           legalRisk: Math.max(0, state.legalRisk - 5)
         });
       }
+    },
+
+    checkEmployeeBetrayals: () => {
+      const state = get();
+      if (!state.company) return;
+
+      const betrayalEvents: BetrayalEvent[] = [];
+      let totalStolenAmount = 0;
+      let totalLegalRiskIncrease = 0;
+      
+      const updatedEmployees = state.company.employees.filter(emp => {
+        // Employees with very low loyalty (< 20%) have a chance to betray
+        if (emp.loyalty < 20 && Math.random() < 0.05) {
+          const betrayalType = Math.random() < 0.5 ? 'theft' : 'leak';
+          
+          if (betrayalType === 'theft') {
+            // Employee steals money
+            const stolenAmount = Math.floor(emp.salary * 3 + Math.random() * 10000);
+            totalStolenAmount += stolenAmount;
+            betrayalEvents.push({
+              type: 'theft',
+              employee: emp.name,
+              amount: stolenAmount
+            });
+          } else {
+            // Employee leaks information (increases legal risk)
+            totalLegalRiskIncrease += 15;
+            betrayalEvents.push({
+              type: 'leak',
+              employee: emp.name,
+              riskIncrease: 15
+            });
+          }
+          
+          return false; // Remove employee
+        }
+        return true; // Keep employee
+      });
+
+      if (betrayalEvents.length > 0) {
+        // Apply all consequences in a single state update
+        set({
+          player: {
+            ...state.player,
+            cash: Math.max(0, state.player.cash - totalStolenAmount)
+          },
+          company: {
+            ...state.company,
+            employees: updatedEmployees
+          },
+          legalRisk: Math.min(100, state.legalRisk + totalLegalRiskIncrease)
+        });
+        
+        // Log betrayal events for display
+        betrayalEvents.forEach(event => {
+          if (event.type === 'theft' && event.amount) {
+            console.log(`🚨 BETRAYAL: ${event.employee} stole $${event.amount.toLocaleString()} and fled!`);
+          } else {
+            console.log(`🚨 BETRAYAL: ${event.employee} leaked sensitive information to authorities!`);
+          }
+        });
+        
+        if (totalStolenAmount > 0) {
+          console.log(`💰 Total losses from betrayals: $${totalStolenAmount.toLocaleString()}`);
+        }
+        if (totalLegalRiskIncrease > 0) {
+          console.log(`⚖️ Legal risk increased by ${totalLegalRiskIncrease} points`);
+        }
+      }
+    },
+
+    fireEmployee: (id: string) => {
+      const state = get();
+      if (!state.company) return;
+
+      const employee = state.company.employees.find(emp => emp.id === id);
+      if (!employee) return;
+
+      // Firing costs severance pay
+      const severancePay = Math.floor(employee.salary * 2);
+      
+      set({
+        player: {
+          ...state.player,
+          cash: Math.max(0, state.player.cash - severancePay)
+        },
+        company: {
+          ...state.company,
+          employees: state.company.employees.filter(emp => emp.id !== id),
+          value: Math.max(0, state.company.value - 10000) // Company value decreases
+        }
+      });
+    },
+
+    giveEmployeeBonus: (id: string, amount: number) => {
+      const state = get();
+      if (!state.company || state.player.cash < amount) return;
+
+      const updatedEmployees = state.company.employees.map(emp => {
+        if (emp.id === id) {
+          return {
+            ...emp,
+            loyalty: Math.min(100, emp.loyalty + Math.floor(amount / 1000)) // +1 loyalty per $1000 bonus
+          };
+        }
+        return emp;
+      });
+
+      set({
+        player: {
+          ...state.player,
+          cash: state.player.cash - amount
+        },
+        company: {
+          ...state.company,
+          employees: updatedEmployees
+        }
+      });
     },
 
     increaseLegalRisk: (amount: number) => {

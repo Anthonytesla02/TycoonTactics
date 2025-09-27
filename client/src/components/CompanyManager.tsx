@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGameState, Employee } from "../lib/stores/useGameState";
 import { EmployeeRole, EMPLOYEE_ROLES } from "../../../shared/employeeConfig";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -6,13 +6,25 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
-import { Building, Users, DollarSign, TrendingUp, Plus, Brain, TrendingUp as Trading, Scale, Shield, AlertTriangle, Star } from "lucide-react";
+import { Building, Users, DollarSign, TrendingUp, Plus, Brain, TrendingUp as Trading, Scale, Shield, AlertTriangle, Star, UserX, Gift, AlertCircle } from "lucide-react";
 
 export function CompanyManager() {
-  const { player, company, createCompany, hireEmployee, upgradeEmployee, trainEmployee } = useGameState();
+  const { player, company, createCompany, hireEmployee, upgradeEmployee, trainEmployee, fireEmployee, giveEmployeeBonus, checkEmployeeBetrayals } = useGameState();
   const [companyName, setCompanyName] = useState("");
   const [selectedRole, setSelectedRole] = useState<EmployeeRole | "random">("random");
   const [showHireOptions, setShowHireOptions] = useState(false);
+  const [bonusAmounts, setBonusAmounts] = useState<Record<string, number>>({});
+
+  // Periodic betrayal checks
+  useEffect(() => {
+    if (!company || company.employees.length === 0) return;
+    
+    const interval = setInterval(() => {
+      checkEmployeeBetrayals();
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [company?.employees.length, checkEmployeeBetrayals]);
 
   const roleIcons = {
     brain: Brain,
@@ -128,6 +140,17 @@ export function CompanyManager() {
                 <Plus className="w-4 h-4 mr-1" />
                 Hire Employee ($25k)
               </Button>
+              {company.employees.length > 0 && (
+                <Button
+                  size="sm"
+                  onClick={checkEmployeeBetrayals}
+                  variant="outline"
+                  className="bg-orange-900 hover:bg-orange-800"
+                >
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  Check Loyalty
+                </Button>
+              )}
             </div>
           </CardTitle>
         </CardHeader>
@@ -205,6 +228,9 @@ export function CompanyManager() {
                         <div className="flex items-center gap-2 mb-1">
                           <Icon className={`w-4 h-4 ${roleConfig.color}`} />
                           <span className="font-semibold">{employee.name}</span>
+                          {employee.loyalty < 20 && (
+                            <AlertCircle className="w-4 h-4 text-red-500" />
+                          )}
                         </div>
                         <div className="text-sm text-gray-400">
                           {roleConfig.name} • {employee.specialization}
@@ -219,18 +245,29 @@ export function CompanyManager() {
                           <span className="text-xs text-gray-400 ml-1">Level {employee.skillLevel}</span>
                         </div>
                       </div>
-                      <Badge variant={
-                        employee.loyalty >= 80 ? 'default' :
-                        employee.loyalty >= 50 ? 'secondary' : 'destructive'
-                      }>
-                        {employee.loyalty}% Loyal
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant={
+                          employee.loyalty >= 80 ? 'default' :
+                          employee.loyalty >= 50 ? 'secondary' : 'destructive'
+                        }>
+                          {employee.loyalty}% Loyal
+                        </Badge>
+                        {employee.loyalty < 30 && (
+                          <span className="text-xs text-red-400">⚠️ Risk of betrayal</span>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="space-y-2 mb-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Competence:</span>
                         <span>{employee.competence}/100</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Performance:</span>
+                        <span className={employee.loyalty >= 80 ? 'text-green-400' : employee.loyalty >= 50 ? 'text-yellow-400' : 'text-red-400'}>
+                          {Math.round((0.5 + employee.loyalty / 200) * 100)}% efficiency
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-400">Experience:</span>
@@ -278,6 +315,48 @@ export function CompanyManager() {
                         className="bg-purple-900 hover:bg-purple-800"
                       >
                         Specialize ($15k)
+                      </Button>
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          placeholder="Bonus"
+                          value={bonusAmounts[employee.id] || ''}
+                          onChange={(e) => setBonusAmounts({
+                            ...bonusAmounts,
+                            [employee.id]: parseInt(e.target.value) || 0
+                          })}
+                          className="w-20 h-8 text-xs bg-gray-700 border-gray-600"
+                          min="1000"
+                          step="1000"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            const amount = bonusAmounts[employee.id] || 5000;
+                            giveEmployeeBonus(employee.id, amount);
+                            setBonusAmounts({...bonusAmounts, [employee.id]: 0});
+                          }}
+                          disabled={player.cash < (bonusAmounts[employee.id] || 1000)}
+                          variant="outline"
+                          className="h-8 text-xs bg-green-900 hover:bg-green-800"
+                        >
+                          <Gift className="w-3 h-3 mr-1" />
+                          Bonus
+                        </Button>
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        onClick={() => fireEmployee(employee.id)}
+                        disabled={player.cash < employee.salary * 2}
+                        variant="outline"
+                        className="h-8 text-xs bg-red-900 hover:bg-red-800"
+                      >
+                        <UserX className="w-3 h-3 mr-1" />
+                        Fire (${(employee.salary * 2).toLocaleString()})
                       </Button>
                     </div>
                   </div>
